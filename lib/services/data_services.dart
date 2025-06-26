@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
 
 // Definisi Error Khusus untuk Serial Port
@@ -11,14 +12,13 @@ class SerialPortError implements Exception {
 
 class DataService {
   // <<< PERBAIKAN DI SINI: _port dideklarasikan final dan diinisialisasi sekali >>>
-  final SerialPort _port;
+  late SerialPort _port;
   late SerialPortReader _reader;
 
-  // Constructor DataService untuk menginisialisasi _port.
-  // Anda dapat menentukan port COM di sini.
-  DataService({String portName = 'COM33'}) // Default ke COM29, bisa diubah saat instansiasi
-      : _port = SerialPort(portName);
-  // <<< AKHIR PERBAIKAN >>>
+  // Constructor Anda tetap sama, tidak perlu diubah.
+  DataService({String portName = 'COM33'}) : _port = SerialPort(portName);
+
+  // --- SISA KODE TIDAK PERLU DIUBAH SAMA SEKALI ---
 
   String _rawData = '';
   String _status = 'Port not opened';
@@ -46,7 +46,7 @@ class DataService {
   String get status => _status;
   set status(String value) { _status = value; }
 
-  void startListening() {
+/*  void startListening() {
     try {
       // <<< PERBAIKAN DI SINI: Atur baud rate SEBELUM membuka port >>>
       _port.config.baudRate = 115200; // PASTIKAN BAUD RATE INI SAMA DENGAN ESP32
@@ -77,6 +77,67 @@ class DataService {
       _status = 'An unexpected error occurred: $e';
       print(_status);
       throw SerialPortError(_status);
+    }
+  }
+*/
+  void startListening() {
+    try {
+      final listPort = SerialPort.availablePorts;
+      print('Available Ports: $listPort'); // Debugging
+
+      // Variabel sementara untuk menampung port yang ditemukan
+      SerialPort? foundPort;
+
+      for (var portName in listPort) {
+        var p = SerialPort(portName);
+        print('Checking port: ${p.name}, Serial: ${p.serialNumber}');
+
+        if (p.serialNumber == '5735016773') {
+          // Jangan langsung assign ke _port, tapi simpan di variabel sementara
+          foundPort = p;
+          break; // Exit loop once found
+        }
+        // Tutup port sementara jika bukan yang dicari
+        p.close();
+      }
+
+      // Setelah loop selesai, barulah assign ke _port jika ditemukan
+      if (foundPort != null) {
+        _port = foundPort;
+      } else {
+        // Jika tidak ditemukan, kita anggap akan memakai port dari constructor
+        print('⚠️ Port dengan serial number tidak ditemukan. Mencoba menggunakan port default: ${_port.name}');
+      }
+
+      if (!_port.isOpen && !_port.openReadWrite()) {
+        print('❌ Error: Failed to open port ${_port.name}');
+        return;
+      }
+
+      print('✅ Port yang digunakan: ${_port.name}');
+
+      final config = _port.config;
+      config.baudRate = 115200;
+      _port.config = config;
+
+      _reader = SerialPortReader(_port);
+
+      print('🎧 Listening to stream...');
+
+      _reader.stream.listen((data) {
+        _rawData += String.fromCharCodes(data);
+        log('DATA : $_rawData'); // diganti menjadi _rawData
+
+        _processRawData();
+      }, onError: (error) {
+        print('❌ Stream error: $error');
+      }, onDone: () {
+        print('✅ Stream closed.');
+      });
+
+
+    } catch (e) {
+      print('❌ Exception during port setup: $e');
     }
   }
 
