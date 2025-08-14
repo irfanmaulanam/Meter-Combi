@@ -352,7 +352,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'assets/images/yariscross.png',
                   height: 230,
                   fit: BoxFit.contain,
-                  color: Colors.white.withOpacity(0.9),
+                 // color: Colors.white.withOpacity(0.9),
                 ),
               ),
             ),
